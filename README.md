@@ -3,7 +3,7 @@
 请先安装了python3再使用该打包器。
 
 仅使用py文件，请下载 `make_ccx.py` 。  
-需要设置Windows环境变量？先下载上述py文件，再下载 `Bootstrap_windows` 文件夹。
+需要设置Windows环境变量？先下载上述py文件，再下载 `Bootstrap_windows` 文件夹。请注意，该文件夹必须与py文件在同一个目录下。
 
 ### Windows10 中文版 配置该程序环境变量方法：
 []()
