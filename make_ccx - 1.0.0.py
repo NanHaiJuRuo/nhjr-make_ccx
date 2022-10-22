@@ -1,4 +1,4 @@
-version='1.0.1'
+version='1.0.0'
 print('\n南海蒟蒻 ccx简易打包器',version)
 print('\n建议在vscode终端里运行\n')
 
@@ -23,10 +23,8 @@ print('\n建议在vscode终端里运行\n')
 # 该打包器的优点：
 #	安装python3后，放入扩展所在文件夹即可使用。
 #	只需要填写 info.json 就可以使用，不需要 package.json 。
-#	智能识别是需要打包程序（package code to ccx）还是需要将build文件夹压缩。
-#		识别方式：如果文件夹里有info.json，那么就打包程序，否则如果build文件夹里有info.json，那么将build文件夹压缩。
-#	（仅 package code to ccx 有效）扩展图标仅打包 info.json 里用到的。（即便如此，也不建议使用其它路径作为封面。）
-#	（仅 package code to ccx 有效）不需要经过 build 文件夹就能完成打包。
+#	扩展图标仅打包 info.json 里用到的。（即便如此，也不建议使用其它路径作为封面，或者往 assets 文件夹塞垃圾。）
+#	不需要经过 build 文件夹就能完成打包。
 #	不会删除 dist 文件夹里的旧版本ccx。
 #	不会吞js里指定的文件路径。
 #	更清晰的打包过程输出。
@@ -39,43 +37,15 @@ print('\n建议在vscode终端里运行\n')
 # 该打包器的缺点：
 #	不会在DevTools的源代码中显示该扩展的文件夹。（但你可以通过vm查看扩展源码。报错时只需展开报错信息，然后追踪开头为 VM 的文件。）
 
-buildfile='./build'
-exportFolderName='./dist'
+
 
 #————————————————————————————————
 try:
 	print('#️⃣  import\n\tjson\n\tzipfile\n\tos')
 	import json,zipfile,os
 	print('▶ run in',os.getcwd())
-	if os.path.exists('./info.json'):
-		print('▶ package code to ccx\n🔍 read ./info.json')
-		info= json.loads(open('./info.json','r').read())
-	else:
-		infojsonfile= buildfile + '/info.json'
-		if os.path.exists('./build/info.json'):
-			#将build直接压缩为ccx
-			print('▶ build to ccx\n🔍 read ./build/info.json')
-			info= json.loads(open('./build/info.json','r').read())
-			print('📦 packaging ',end='')
-			zipname= ("%s/%s@%s.ccx" %(exportFolderName, info['id'], info['version']) )
-			print(zipname)
-			if not os.path.exists(exportFolderName): 
-				os.makedirs(exportFolderName)
-			if os.path.exists(zipname): 
-				os.remove(zipname)
-			z= zipfile.ZipFile(zipname,"w", zipfile.ZIP_DEFLATED)
-			for dirpath,dirs,files in os.walk(buildfile):
-				for f in files:
-					p= (os.path.join(dirpath, f)).replace('\\','/')
-					arcn= p[len(buildfile)+1:]
-					print('\t➕ add %s\n\t    to %s'%(p,arcn))
-					z.write(p, arcname= arcn)
-			print('\t✅ done\n✅ 打包完成\n')
-		else:
-			print('\n❌ 打包失败！未能识别到info.json\n')
-		exit()
-
-
+	print('🔍 read ./info.json')
+	info= json.loads(open('./info.json','r').read())
 	print('📝 variable cache main.js')
 	mainjs= (
 '''/*nhjr make_ccx.py %s*/try{var __webpack_modules__={
@@ -93,38 +63,33 @@ try:
 ''',"%s":%s=>{%s
 \t%s
 %s}''' %(i,j,k,l,m))
-
 	print('\t🔍 read ./package_js_list.txt')
-	if os.path.exists('./package_js_list.txt'):
-		with open('./package_js_list.txt','r',encoding='utf-8') as t:
-			jsList= t.read().strip()
-			if jsList=='':
-				print('\n❌ 打包失败！请编写 ./package_js_list.txt\n\tWindows系统运行下方命令使用记事本打开\n\tnotepad ./package_js_list.txt\n')
-				exit()
+	with open('./package_js_list.txt','a+',encoding='utf-8') as t:
+		t.seek(0, 0) #指针定向至文件开头
+		jsList= t.read().strip()
+		if jsList=='':
+			print('\n❌ 打包失败！请编写 package_js_list.txt')
+			exit()
+		else:
+			jsList= jsList.split('\n')
+		main_program= jsList[0].strip()
+		for i in jsList:
+			j= i.strip()
+			if j=='': continue
+			if j[-2:]=='/*' or j[-2:]=='\\*':
+				for dirpath,dirs,files in os.walk(j[0:-2]):
+					for f in files:
+						p= (os.path.join(dirpath, f)).replace('\\','/')
+						print('\t➕ add js',p)
+						with open(p,'r',encoding='utf-8') as txt:
+							mainjsadd(p,'(module,__unused_webpack_exports,require)','eval(',json.dumps(txt.read()),')')
+						txt.close()
 			else:
-				jsList= jsList.split('\n')
-			main_program= jsList[0].strip()
-			for i in jsList:
-				j= i.strip()
-				if j=='': continue
-				if j[-2:]=='/*' or j[-2:]=='\\*':
-					for dirpath,dirs,files in os.walk(j[0:-2]):
-						for f in files:
-							p= (os.path.join(dirpath, f)).replace('\\','/')
-							print('\t➕ add js',p)
-							with open(p,'r',encoding='utf-8') as txt:
-								mainjsadd(p,'(module,exports,require)','eval(',json.dumps(txt.read()),')')
-							txt.close()
-				else:
-					print('\t➕ add js',j)
-					with open(j,'r',encoding='utf-8') as txt:
-						mainjsadd(j,'(module,exports,require)','eval(',json.dumps(txt.read()),')')
-					txt.close()
-		t.close()
-	else:
-		print('\n❌ 打包失败！未识别到 ./package_js_list.txt ，请创建文件并编写。\n\tWindows系统运行下方命令使用记事本打开\n\tnotepad ./package_js_list.txt\n')
-		exit()
-
+				print('\t➕ add js',j)
+				with open(j,'r',encoding='utf-8') as txt:
+					mainjsadd(j,'(module,__unused_webpack_exports,require)','eval(',json.dumps(txt.read()),')')
+				txt.close()
+	t.close()
 	print('\t🔍 read ./package_txt_list.txt')
 	if os.path.exists('./package_txt_list.txt'):
 		with open('./package_txt_list.txt','r',encoding='utf-8') as t:
@@ -164,11 +129,11 @@ module.exports=__webpack_exports__
 	console.error(e);
 	window.alert('%s  load error\\n'+e)
 }''' %("%s@%s.ccx" %(info['id'], info['version']))).replace('\n	','').replace('\n','') )
-
 	print('\t✅ done\n📦 packaging ',end='')
-	if not os.path.exists(exportFolderName): 
-		os.makedirs(exportFolderName)
-	zipname= ("%s/%s@%s.ccx" %(exportFolderName, info['id'], info['version']) )
+	foldername='./dist'
+	if not os.path.exists(foldername): 
+		os.makedirs(foldername)
+	zipname= ("%s/%s@%s.ccx" %(foldername, info['id'], info['version']) )
 	print(zipname)
 	if os.path.exists(zipname): 
 		os.remove(zipname)
@@ -186,10 +151,6 @@ module.exports=__webpack_exports__
 	z.write("./info.json")
 	print('\t➕ add mainjs cache\n\t    to main.js')
 	z.writestr("main.js",data= mainjs)
-	if os.path.exists('./settings.json'):
-		print('\t➕ add ./settings.json')
-		z.write("./settings.json")
-
 	print('\t✅ done\n✅ 打包完成\n')
 except Exception as e:
 	print('\n❌ 打包失败！%s\n'%e)
